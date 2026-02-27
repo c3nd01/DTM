@@ -1,31 +1,107 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-<title>d4k invoice</title>
+<title>DTM INVOICE</title>
 <style>
-body{font-family:Arial;background:#eee;margin:0}
-.paper{width:210mm;background:#fff;margin:auto;padding:30px}
+body {
+  font-family: Arial;
+  background: #eee;
+  margin: 0;
+}
 
-.logo{font-size:28px;font-weight:bold;color:#d60000}
-.header{display:flex;justify-content:space-between;border-bottom:2px solid #000}
+.paper {
+  width: 210mm;
+  background: #fff;
+  margin: auto;
+  padding: 30px;
+}
 
-input,select,textarea{width:100%;padding:6px;margin:4px 0}
-button{padding:6px 10px;background:black;color:white;border:none;margin:5px 0}
+.logo {
+  font-size: 28px;
+  font-weight: bold;
+  color: #d60000;
+}
 
-table{width:100%;border-collapse:collapse;margin-top:10px}
-table,th,td{border:1px solid #000}
-th,td{padding:6px;text-align:center}
+.header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 2px solid #000;
+}
 
-.totalBox{float:right;margin-top:15px;font-size:18px}
-.bank{margin-top:30px}
-.signature{margin-top:60px;display:flex;justify-content:space-between}
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 6px;
+  margin: 4px 0;
+  box-sizing: border-box;
+}
 
-.history{background:#fafafa;padding:10px;border:1px solid #ccc;margin-bottom:10px}
+/* Style table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
 
-@media print{
-.form-area,.history,button{display:none}
-body{background:#fff}
+table,
+th,
+td {
+  border: 1px solid #000;
+}
+
+th,
+td {
+  padding: 6px;
+  text-align: center;
+}
+
+/* Penyesuaian kolom untuk Item Table */
+#itemTable th:nth-child(1),
+#itemTable td:nth-child(1) {
+  width: 50%;
+}
+#itemTable th:nth-child(2),
+#itemTable td:nth-child(2),
+#itemTable th:nth-child(3),
+#itemTable td:nth-child(3) {
+  width: 15%;
+}
+#itemTable th:nth-child(4),
+#itemTable td:nth-child(4) {
+  width: 20%;
+}
+
+/* Total box */
+.totalBox {
+  float: right;
+  margin-top: 15px;
+  font-size: 18px;
+}
+
+/* Bank info */
+.bank {
+  margin-top: 30px;
+}
+
+/* Signature area */
+.signature {
+  margin-top: 60px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Print media */
+@media print {
+  .form-area,
+  .history,
+  button,
+  .no-print {
+    display: none;
+  }
+  body {
+    background: #fff;
+  }
 }
 </style>
 </head>
@@ -38,8 +114,9 @@ body{background:#fff}
 <select id="historyList" onchange="loadInvoice()"></select>
 </div>
 
-<div style="margin-bottom:10px;">
-<!-- Tambahkan input untuk mengubah nama perusahaan -->
+<!-- Tambahkan kelas no-print ke div ini -->
+<div style="margin-bottom:10px;" class="no-print">
+<!-- Kelas ini akan disembunyikan saat print/download -->
 <label>Change Company Name:</label>
 <input type="text" id="companyInput" placeholder="Enter new company name" oninput="updateCompanyName()">
 </div>
@@ -54,11 +131,7 @@ body{background:#fff}
 <h4>Items</h4>
 <table id="itemTable">
 <tr>
-<th>Description</th>
-<th>Qty</th>
-<th>Unit Price</th>
-<th>Total</th>
-<th>❌</th>
+<th>Description</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>❌</th>
 </tr>
 </table>
 
@@ -101,7 +174,7 @@ INVOICE<br>
 
 <table id="previewTable">
 <tr>
-<th>Description</th><th>Qty</th><th>Unit</th><th>Total</th>
+<th>Description</th><th>Qty</th><th>Unit Price</th><th>Total</th>
 </tr>
 </table>
 
@@ -147,7 +220,7 @@ function updateCompanyName() {
     } else {
         // Jika input kosong, kembalikan ke nama default
         document.getElementById("companyTitle").innerText = "DTM Contractor Invoice System";
-        document.getElementById("logoName").innerText = "DTM";
+        document.getElementById("logoName").innerText = "TMC";
     }
 }
 
@@ -157,8 +230,8 @@ function addRow(){
     let row=table.insertRow();
     row.innerHTML=`
     <td><textarea placeholder="Description" style="width:100%;height:60px;"></textarea></td>
-    <td><input type="number" oninput="calcRow(this)"></td>
-    <td><input type="number" oninput="calcRow(this)"></td>
+    <td><input type="number" oninput="calcRow(this)" style="width:100%;"></td>
+    <td><input type="number" oninput="calcRow(this)" style="width:100%;"></td>
     <td class="rowTotal">0.00</td>
     <td><button onclick="removeRow(this)">X</button></td>
     `;
@@ -198,7 +271,7 @@ function generate(){
 
     let preview=document.getElementById("previewTable");
     preview.innerHTML=`<tr>
-    <th>Description</th><th>Qty</th><th>Unit</th><th>Total</th></tr>`;
+    <th>Description</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>`;
 
     let rows=document.querySelectorAll("#itemTable tr");
     let items=[];
@@ -308,8 +381,8 @@ function loadInvoice(){
         let row=table.insertRow();
         row.innerHTML=`
         <td><textarea>${item.desc}</textarea></td>
-        <td><input type="number" value="${item.qty}" oninput="calcRow(this)"></td>
-        <td><input type="number" value="${item.price}" oninput="calcRow(this)"></td>
+        <td><input type="number" value="${item.qty}" oninput="calcRow(this)" style="width:100%;"></td>
+        <td><input type="number" value="${item.price}" oninput="calcRow(this)" style="width:100%;"></td>
         <td class="rowTotal">0.00</td>
         <td><button onclick="removeRow(this)">X</button></td>
         `;
