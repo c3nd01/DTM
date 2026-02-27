@@ -1,0 +1,326 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>d4k invoice</title>
+<style>
+body{font-family:Arial;background:#eee;margin:0}
+.paper{width:210mm;background:#fff;margin:auto;padding:30px}
+
+.logo{font-size:28px;font-weight:bold;color:#d60000}
+.header{display:flex;justify-content:space-between;border-bottom:2px solid #000}
+
+input,select,textarea{width:100%;padding:6px;margin:4px 0}
+button{padding:6px 10px;background:black;color:white;border:none;margin:5px 0}
+
+table{width:100%;border-collapse:collapse;margin-top:10px}
+table,th,td{border:1px solid #000}
+th,td{padding:6px;text-align:center}
+
+.totalBox{float:right;margin-top:15px;font-size:18px}
+.bank{margin-top:30px}
+.signature{margin-top:60px;display:flex;justify-content:space-between}
+
+.history{background:#fafafa;padding:10px;border:1px solid #ccc;margin-bottom:10px}
+
+@media print{
+.form-area,.history,button{display:none}
+body{background:#fff}
+}
+</style>
+</head>
+
+<body>
+<div class="paper">
+
+<div class="history">
+<strong>Invoice History:</strong>
+<select id="historyList" onchange="loadInvoice()"></select>
+</div>
+
+<div style="margin-bottom:10px;">
+<!-- Tambahkan input untuk mengubah nama perusahaan -->
+<label>Change Company Name:</label>
+<input type="text" id="companyInput" placeholder="Enter new company name" oninput="updateCompanyName()">
+</div>
+
+<div class="form-area">
+<h3 id="companyTitle">DakMc Invoice System</h3>
+
+<input id="client" placeholder="Client Name">
+<!-- Tukar kepada textarea untuk alamat -->
+<textarea id="clientAddress" placeholder="Client Address" rows="3" style="width:100%;"></textarea>
+
+<h4>Items</h4>
+<table id="itemTable">
+<tr>
+<th>Description</th>
+<th>Qty</th>
+<th>Unit Price</th>
+<th>Total</th>
+<th>❌</th>
+</tr>
+</table>
+
+<button onclick="addRow()">+ Add Item</button>
+
+<hr>
+
+<input id="bank" placeholder="Bank Name">
+<input id="acc" placeholder="Account No">
+<input id="owner" placeholder="Account Owner">
+
+<select id="signToggle">
+<option value="yes">With Signature</option>
+<option value="no">No Signature</option>
+</select>
+
+<button onclick="generate()">Generate Invoice</button>
+<button onclick="resetForm()">Reset Form</button>
+</div>
+
+<!-- INVOICE -->
+<div id="invoice" style="display:none">
+
+<div class="header">
+<div>
+<div class="logo" id="logoName">TMC</div>
+<small id="companyHeader">DTM Contractor Invoice System</small>
+</div>
+<div>
+INVOICE<br>
+<span id="invno"></span><br>
+<span id="date"></span>
+</div>
+</div>
+
+<br><strong>Bill To:</strong> 
+<span id="outClient"></span><br>
+<!-- Guna <pre> untuk mengekalkan format alamat -->
+<pre id="outClientAddress" style="white-space: pre;"></pre>
+
+<table id="previewTable">
+<tr>
+<th>Description</th><th>Qty</th><th>Unit</th><th>Total</th>
+</tr>
+</table>
+
+<div class="totalBox">
+<strong>Grand Total: <span id="grandTotal"></span></strong>
+</div>
+
+<div style="clear:both"></div>
+
+<div class="bank">
+<strong>Payment:</strong><br>
+Bank: <span id="outBank"></span><br>
+Acc: <span id="outAcc"></span><br>
+Name: <span id="outOwner"></span>
+</div>
+
+<div id="signArea" class="signature">
+<div>_____________<br>Authorized</div>
+<div>_____________<br>Client</div>
+</div>
+
+<br>
+<button onclick="window.print()">Save PDF</button>
+</div>
+
+</div>
+
+<script>
+window.onload=function(){
+    loadHistory();
+    addRow();
+    // Inisialisasi nama perusahaan awal
+    document.getElementById("companyTitle").innerText = "DTM Contractor Invoice System";
+    document.getElementById("logoName").innerText = "TMC";
+}
+
+// Fungsi untuk memperbarui nama perusahaan dari input
+function updateCompanyName() {
+    const newName = document.getElementById("companyInput").value.trim();
+    if(newName !== "") {
+        document.getElementById("companyTitle").innerText = newName;
+        document.getElementById("logoName").innerText = newName.substring(0,3).toUpperCase();
+    } else {
+        // Jika input kosong, kembalikan ke nama default
+        document.getElementById("companyTitle").innerText = "DTM Contractor Invoice System";
+        document.getElementById("logoName").innerText = "DTM";
+    }
+}
+
+// ADD ROW
+function addRow(){
+    let table=document.getElementById("itemTable");
+    let row=table.insertRow();
+    row.innerHTML=`
+    <td><textarea placeholder="Description" style="width:100%;height:60px;"></textarea></td>
+    <td><input type="number" oninput="calcRow(this)"></td>
+    <td><input type="number" oninput="calcRow(this)"></td>
+    <td class="rowTotal">0.00</td>
+    <td><button onclick="removeRow(this)">X</button></td>
+    `;
+}
+
+// REMOVE ROW
+function removeRow(btn){
+    btn.parentElement.parentElement.remove();
+}
+
+// AUTO ROW TOTAL
+function calcRow(input){
+    let row=input.parentElement.parentElement;
+    let qtyValue = row.cells[1].children[0].value;
+    let price=parseFloat(row.cells[2].children[0].value)||0;
+    let qty = (qtyValue === "" || parseFloat(qtyValue)===0) ? 1 : parseFloat(qtyValue);
+    row.cells[3].innerText=(qty*price).toFixed(2);
+}
+
+// GENERATE INVOICE
+function generate(){
+    if(!val("client")){
+        alert("Please enter Client Name");
+        return;
+    }
+    if(!val("clientAddress")){
+        alert("Please enter Client Address");
+        return;
+    }
+    if(!val("bank") || !val("acc") || !val("owner")){
+        alert("Please complete Bank details");
+        return;
+    }
+
+    let inv=nextNo();
+    let date=new Date().toLocaleDateString();
+
+    let preview=document.getElementById("previewTable");
+    preview.innerHTML=`<tr>
+    <th>Description</th><th>Qty</th><th>Unit</th><th>Total</th></tr>`;
+
+    let rows=document.querySelectorAll("#itemTable tr");
+    let items=[];
+    let grand=0;
+
+    rows.forEach((r,i)=>{
+        if(i===0) return;
+        let desc=r.cells[0].children[0].value;
+        let qty=parseFloat(r.cells[1].children[0].value)||0;
+        let price=parseFloat(r.cells[2].children[0].value)||0;
+        let displayQty = (r.cells[1].children[0].value === "" || qty===0) ? 1 : qty;
+        let total=displayQty*price;
+        grand+=total;
+
+        preview.innerHTML+=`
+        <tr>
+        <td>${desc}</td>
+        <td>${displayQty}</td>
+        <td>RM ${price.toFixed(2)}</td>
+        <td>RM ${total.toFixed(2)}</td>
+        </tr>`;
+        items.push({desc,qty:displayQty,price});
+    });
+
+    document.getElementById("grandTotal").innerText="RM "+grand.toFixed(2);
+    let addr=document.getElementById("clientAddress").value;
+    document.getElementById("outClient").innerText=val("client");
+    document.getElementById("outClientAddress").innerText=addr;
+
+    document.getElementById("outBank").innerText=val("bank");
+    document.getElementById("outAcc").innerText=val("acc");
+    document.getElementById("outOwner").innerText=val("owner");
+
+    document.getElementById("invno").innerText=inv;
+    document.getElementById("date").innerText=date;
+
+    let toggle=document.getElementById("signToggle").value;
+    document.getElementById("signArea").style.display=
+    toggle==="yes"?"flex":"none";
+
+    let data={
+        inv,date,
+        client:val("client"),
+        clientAddress:addr,
+        items,
+        bank:val("bank"),
+        acc:val("acc"),
+        owner:val("owner")
+    };
+    let list=JSON.parse(localStorage.getItem("tmc-hist")||"[]");
+    list.push(data);
+    localStorage.setItem("tmc-hist",JSON.stringify(list));
+    localStorage.setItem("tmc-last",inv.split('-')[1]);
+    loadHistory();
+    document.getElementById("invoice").style.display="block";
+    resetForm();
+}
+
+// RESET FORM
+function resetForm(){
+    document.getElementById("client").value="";
+    document.getElementById("clientAddress").value="";
+    document.getElementById("bank").value="";
+    document.getElementById("acc").value="";
+    document.getElementById("owner").value="";
+    let table=document.getElementById("itemTable");
+    while(table.rows.length>1){table.deleteRow(1);}
+    addRow();
+}
+
+// AUTO NUMBER
+function nextNo(){
+    let last=localStorage.getItem("tmc-last")||"0000";
+    let num=parseInt(last);
+    num++;
+    let newInv="INV-"+String(num).padStart(4,'0');
+    return newInv;
+}
+
+// LOAD SEJARAH
+function loadHistory(){
+    let list=JSON.parse(localStorage.getItem("tmc-hist")||"[]");
+    let sel=document.getElementById("historyList");
+    sel.innerHTML="<option>-- Select Invoice --</option>";
+    list.forEach((i,index)=>{
+        sel.innerHTML+=`<option value="${index}">${i.inv} - ${i.client}</option>`;
+    });
+}
+
+// MUAT INVOCE DARI SEJARAH
+function loadInvoice(){
+    let idx=document.getElementById("historyList").value;
+    if(idx.includes("--")) return;
+    let list=JSON.parse(localStorage.getItem("tmc-hist"));
+    let d=list[idx];
+
+    document.getElementById("client").value=d.client;
+    document.getElementById("clientAddress").value=d.clientAddress;
+    document.getElementById("bank").value=d.bank;
+    document.getElementById("acc").value=d.acc;
+    document.getElementById("owner").value=d.owner;
+
+    // Kosongkan item table dan tambah item dari sejarah
+    let table=document.getElementById("itemTable");
+    while(table.rows.length>1){table.deleteRow(1);}
+    d.items.forEach(item => {
+        let row=table.insertRow();
+        row.innerHTML=`
+        <td><textarea>${item.desc}</textarea></td>
+        <td><input type="number" value="${item.qty}" oninput="calcRow(this)"></td>
+        <td><input type="number" value="${item.price}" oninput="calcRow(this)"></td>
+        <td class="rowTotal">0.00</td>
+        <td><button onclick="removeRow(this)">X</button></td>
+        `;
+        let descTextarea=row.cells[0].children[0];
+        calcRow(descTextarea);
+    });
+    alert("Loaded. Click Generate.");
+}
+
+// HELPERS
+function val(id){return document.getElementById(id).value;}
+</script>
+</body>
+</html>
